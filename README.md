@@ -41,4 +41,8 @@
     let value = parse tokens lisp
     sprintf "%A" value
 
+    (**
+    output:
+    S [S [Term "3"; Term "2"; Term "1"; Term "mul"]; Term "1"; Term "add"]
+    *)
 ```
