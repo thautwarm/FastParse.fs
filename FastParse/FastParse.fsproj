@@ -1,10 +1,19 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 <PropertyGroup>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
-    <NoWarn>62</NoWarn>
+  <TargetFramework>netcoreapp2.0</TargetFramework>
+  <NoWarn>62</NoWarn>
+  <PackageId>FastParse</PackageId>
+  <Version>0.1.0</Version>
+  <Authors>thautwarm</Authors>
+  <Description>Yet another parser combinator.</Description>
+  <PackageLicenseUrl>https://github.com/thautwarm/FastParse.fs/blob/master/LICENSE</PackageLicenseUrl>
+  <PackageProjectUrl>https://github.com/thautwarm/FastParse.fs</PackageProjectUrl>
+  <PackageTags>0.1.0</PackageTags>
+  <Copyright>Copyright 2018 thautwarm</Copyright>
+  <RepositoryUrl>https://github.com/thautwarm/FastParse.fs</RepositoryUrl>
+  <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
   </PropertyGroup>
-
   <ItemGroup>
     
     
@@ -21,5 +30,11 @@
   <ItemGroup>
     <ProjectReference Include="..\Helper\Helper.csproj" />
   </ItemGroup>
+
+  <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="ResolveProjectReferences">
+    <ItemGroup>
+      <BuildOutputInPackage Include="@(_ResolvedProjectReferencePaths)" />
+    </ItemGroup>
+  </Target>
 
 </Project>
