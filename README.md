@@ -13,7 +13,7 @@
         C "unname" ["("]
         C "unname" [")"]
     ]
-    let term = FastParse.Parser.token_by_name "term"
+    let term : token parser = token_by_name "term"
     let l: token parser = token_by_value "("
     let r: token parser = token_by_value ")"
     let rec lisp tokens  =
