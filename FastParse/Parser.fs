@@ -1,5 +1,6 @@
 ﻿module FastParse.Parser
 open FastParse.Infras
+open System
 
 type token = {
     filename : string
@@ -19,7 +20,18 @@ let (|As|Empty|) ({arr = arr; offset = offset}: 't view) =
     if arr.Length <= offset then Empty
     else As(arr.[offset], {arr = arr; offset = offset + 1})
 
-type 't parser = (token view -> ('t * token view) M)
+type 't parser = (token view -> ('t * token view) maybe)
+
+let recur (stack: 'a -> token view -> ('a * token view) maybe) (final: 'a parser)= 
+    fun tokens ->
+    final tokens >>=
+    function
+    | (a, tokens) -> 
+        let rec loop res tokens = 
+            match stack res tokens with
+            | Just(res, tokens) -> loop res tokens
+            | _                 -> Just(res, tokens)
+        loop a tokens
 
 let pred (pred: 'a -> bool) (pa: 'a parser) =
     fun tokens ->
@@ -43,18 +55,18 @@ let either (pa: 'a parser) (pb: 'a parser): 'a parser =
     | Nothing ->
     pb tokens >>= fun (b, tokens) -> Just(b, tokens)
 
-let any: token parser = 
+let anyToken: token parser =
     function
     | As(head, tail) -> Just(head, tail)
     | _              -> Nothing
 
-let nor (pa: 'a parser): token parser =
+let not (pa: 'a parser) (pb: 'b parser): 'b parser =
     fun tokens ->
     match pa tokens with
     | Just _  -> Nothing
-    | Nothing -> any tokens
+    | Nothing -> pb tokens
 
-let rep (pa: 'a parser) at_least at_most (setter: 'a list -> 'b): 'b parser = 
+let rep (pa: 'a parser) at_least at_most (transform: 'a list -> 'b): 'b parser = 
     if at_most <= 0 then 
         fun tokens ->
         let rec loop tokens now lst = 
@@ -64,7 +76,7 @@ let rep (pa: 'a parser) at_least at_most (setter: 'a list -> 'b): 'b parser =
             | Just(a, tokens) -> loop tokens <| now + 1 <| a :: lst
         match loop tokens 0 [] with
         | Nothing   -> Nothing
-        | Just(lst, tokens) -> Just(setter lst, tokens)
+        | Just(lst, tokens) -> Just(transform <| List.rev lst, tokens)
     else
         fun tokens ->
         let rec loop tokens now lst = 
@@ -77,9 +89,9 @@ let rep (pa: 'a parser) at_least at_most (setter: 'a list -> 'b): 'b parser =
             | _ -> failwith "impossible"
         match loop tokens 0 [] with
         | Nothing   -> Nothing
-        | Just(lst, tokens) -> Just(setter lst, tokens)
+        | Just(lst, tokens) -> Just(transform <| List.rev lst, tokens)
 
-let map (pa: 'a parser) (map: 'a -> 'b): 'b parser = 
+let trans (pa: 'a parser) (map: 'a -> 'b): 'b parser = 
     fun tokens ->
     pa tokens >>=
     fun (a, tokens) -> Just(map a, tokens)
@@ -97,13 +109,12 @@ let token_by_value_addr (str: string): token parser =
         Just(head, tail)
     | _ -> Nothing
 
-let jump (map: (string, 'a parser) Map): 'a parser = 
+(** 你懂什么叫无敌吗*)
+let pgen (pa: 'b parser parser): 'b parser = 
+    fun tokens ->
+    pa tokens >>=
     function
-    | Empty -> Nothing
-    | As(head, tail) ->
-    match Map.tryFind head.value map with
-    | Some parser -> parser tail
-    | _           -> Nothing
+    | (parser, tokens) -> parser tokens
 
 let token_by_name (name: string): token parser =
     let name = cast_const name
@@ -112,7 +123,7 @@ let token_by_name (name: string): token parser =
         Just(head, tail)
     | _ -> Nothing
 
-let parse (tokens: token view) (parser: 't parser) = 
+let parse (parser: 't parser) (tokens: token view)  = 
     match parser tokens with
     | Just(res, Empty) -> res
     | _ as it -> failwithf "%A" it

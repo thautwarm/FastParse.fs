@@ -22,7 +22,7 @@
     <!--<Compile Include="Parser.fs" />-->
     
     <!--<Compile Include="LR.fs" />-->
-    <Compile Include="NoLR.fs" />
+    <Compile Include="Parser.fs" />
     <Compile Include="Lexer.fs" />
     
   </ItemGroup>

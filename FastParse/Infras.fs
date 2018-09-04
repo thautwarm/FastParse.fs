@@ -5,21 +5,23 @@ type ('k, 'v) hashtable = System.Collections.Generic.Dictionary<'k, 'v>
 type 't hashset = System.Collections.Generic.HashSet<'t>
 type 'T arraylist = System.Collections.Generic.List<'T>
 
-type 'a M =
+type 'a maybe =
     | Just of 'a
     | Nothing
+    static member inline Return (a: 'a) = Just a
+    static member inline Bind   ((ma: 'a maybe, f: 'a -> 'b maybe)) = 
+        match ma with 
+        | Just a -> f a
+        | Nothing -> Nothing
+    
+let inline Return< ^a, ^b when ^b: (static member Return: ^a -> ^b)> (a: ^a) = (^b : (static member Return: ^a -> ^b) a)
 
-let (>>=) (m : 'a M) (f : 'a -> 'b M) : 'b M =
-    match m with
-    | Just a ->  f a
-    | Nothing -> Nothing
-
-let Return (a: 'a) : 'a M =
-    Just a
+let inline (>>=) (a: ^a when ^a: (static member Bind: (^a * (^e -> ^b)) -> ^b)) (f: ^e -> ^b): ^b = 
+                let tp = (a, f)
+                in (^a: (static member Bind: (^a * (^e -> ^b)) -> ^b) tp)
 
 let (&=) a b =
     obj.ReferenceEquals(a, b)
-
 
 let caching_pool : (string, string) hashtable = hashtable()
 
