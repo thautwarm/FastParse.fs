@@ -1,6 +1,6 @@
 ﻿module FastParse.Parser
 open FastParse.Infras
-open System
+
 
 type token = {
     filename : string
@@ -12,15 +12,19 @@ type token = {
 }
 
 type 't view = {
-    arr   : 't array
-    offset: int
+    arr    : 't array
+    offset : int 
 }
+
+let (<*>) f arg = (f, f arg)
+
+type 't parser = token view -> ('t * token view) maybe
 
 let (|As|Empty|) ({arr = arr; offset = offset}: 't view) = 
     if arr.Length <= offset then Empty
     else As(arr.[offset], {arr = arr; offset = offset + 1})
 
-type 't parser = (token view -> ('t * token view) maybe)
+
 
 let recur (stack: 'a -> token view -> ('a * token view) maybe) (final: 'a parser)= 
     fun tokens ->
@@ -109,7 +113,6 @@ let token_by_value_addr (str: string): token parser =
         Just(head, tail)
     | _ -> Nothing
 
-(** 你懂什么叫无敌吗*)
 let pgen (pa: 'b parser parser): 'b parser = 
     fun tokens ->
     pa tokens >>=

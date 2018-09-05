@@ -155,6 +155,12 @@ type MyTests2(output:ITestOutputHelper) =
         |> ``filter and to view`` 
         |> parse test3
         |> fun it -> Assert.True(it, "pad test failed")
+    
+    [<Fact>]
+    member __.``auto lr`` () =
+        let rec f x = if x = 0 then 0 else g x
+        and g x = f (x - 1) 
+        g 5
 
 
         
