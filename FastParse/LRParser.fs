@@ -1,16 +1,5 @@
-﻿module LRParser
+﻿module FastParse.LRParser
 open FastParse.Infras
-
-
-type token = {
-    filename : string
-    lineno   : int
-    colno    : int
-    offset   : int
-    name     : string
-    value    : string
-}
-
 
 type 't view = {
     arr    : 't array
@@ -18,48 +7,51 @@ type 't view = {
 }
 
 type 't parser = {
-    apply: (state -> 't parsing)
+    apply: state -> 't parsing
     id: int
 }
 
 and 't parsing =
     | Success of   't * state
-    | LR      of (obj -> state -> 't parsing) * obj * state
+    | LR      of (obj -> state -> 't parsing) * int * state
     | Failure
 
 and state = {
     tokens  : token view
     trace   : int Set
     lr      : (int * int) Set
-    parsers : int Set
     }
 
 and 'a handler = | H of 'a parser * 'a parsing
     with
     (** parsing monad*)
-    static member inline Bind ((ma: 't handler , f: ('t * state) -> 'g parsing)) =
+    static member Bind ((ma: 't handler , f: ('t * state) -> 'g parsing)) =
         match ma with
         | H(_, Success(a, state)) -> f(a, state)
         | H(_, Failure) -> Failure
-        | H(self, LR(stack, recur_parser, state)) ->
+        | H(self, LR(stack, recur_id, state)) ->
         (** in this case, 't must be 'g! *)
-        if obj.ReferenceEquals(self, recur_parser) then
-            handler.parsing_monad_app self state >>=
-            fun (a, ({tokens = {offset = offset} as tokens; lr = lr; trace = trace} as state)) ->
+        if self.id = recur_id && not <| state.trace.Contains self.id then
+            handler<'t>.parsing_monad_app self state >>=
+            fun (a, ({tokens = {offset = offset}; lr = lr} as state)) ->
+            
             let rec loop (res: 't) state =
                 match stack res state with
-                | Success(res, state) -> loop res state
+                | Success(res, state) -> 
+                    
+                    loop res state
                 | _               ->
                 Success(res :> obj :?> 'g, {state with lr = Set.remove (offset, self.id) lr})
             loop a state
         else
         let stack (obj: obj) state: 'g parsing =
             match stack obj state with
-            | Success(a, state) -> f(a, state)
+            | Success(a, state) -> 
+                f(a, state)
             | _             -> Failure
-        LR(stack, recur_parser, {state with trace = Set.remove self.id state.trace})
+        LR(stack, recur_id, {state with trace = Set.remove self.id state.trace})
 
-    static member inline parsing_monad_app (p: 'a parser) (state: state): 'a handler =
+    static member parsing_monad_app (p: 'a parser) (state: state): 'a handler =
         match state with
         | {lr = lr; tokens = {offset = offset}}
           when Set.contains (offset, p.id) lr ->
@@ -67,11 +59,13 @@ and 'a handler = | H of 'a parser * 'a parsing
         | {trace = trace; lr = lr; tokens = {offset = offset}}
            when Set.contains p.id trace ->
            let stack (res: obj) state = Success(res :?> 't, state)
-           H(p, LR(stack, p :> obj, {state with lr = Set.add (offset, p.id) lr}))
+           H(p, LR(stack, p.id, {state with lr = Set.add (offset, p.id) lr}))
         | {trace = trace} ->
             H(p, p.apply {state with trace = Set.add p.id trace})
 
-let (<*>): 'a parser -> state -> 'a handler = handler.parsing_monad_app
+
+
+let inline (<*>) (a: 'a parser) (b: state): 'a handler = handler<'a>.parsing_monad_app a b
 
 let (|Match|UnMatch|) =
     function
@@ -82,11 +76,29 @@ let (|As|Empty|) ({tokens = {arr = arr; offset = offset}} as state)=
     if arr.Length <= offset then Empty
     else As(arr.[offset], {state with tokens = {arr = arr; offset = offset + 1}; trace = set []})
 
-type language = {
-        id: int
-    }
+
+
+type Session() = 
+    let id = ref 0
     with
-    member inline this.pred (pred: 'a -> bool) (pa: 'a parser) =
+
+    member this.make_state tokens = 
+        {
+        tokens = {arr = tokens; offset = 0}
+        lr     = set []
+        trace  = set []
+        }
+
+    member private this.inc =
+            let ret = id.Value
+            id.contents <- id.contents + 1
+            ret
+
+    member this.make_parser (apply: state -> 't parsing) = 
+        {id = this.inc; apply = apply}
+
+    member this.pred (pred: 'a -> bool) (pa: 'a parser) =
+        this.make_parser <|
         fun tokens ->
         pa <*> tokens >>=
         function
@@ -94,7 +106,8 @@ type language = {
         | _  -> Failure
 
 
-    member inline this.both (pa: 'a parser) (pb: 'b parser) (setter: 'a -> 'b -> 'c) =
+    member this.both (pa: 'a parser) (pb: 'b parser) (setter: 'a -> 'b -> 'c) =
+        this.make_parser <|
         fun tokens ->
         pa <*> tokens >>=
         fun (a, tokens) ->
@@ -102,7 +115,8 @@ type language = {
         fun (b, tokens) ->
         Success(setter a b, tokens)
 
-    member inline this.either (pa: 'a parser) (pb: 'a parser) =
+    member this.either (pa: 'a parser) (pb: 'a parser) =
+        this.make_parser <|
         fun tokens ->
         match pa <*> tokens >>= fun (a, tokens) -> Success(a, tokens) with
         | Success _ as it -> it
@@ -110,7 +124,8 @@ type language = {
 
 
 
-    member inline this.not (pa: 'a parser) (pb: 'b parser) =
+    member this.not (pa: 'a parser) (pb: 'b parser) =
+        this.make_parser <|
         fun state ->
         match pa <*> state with
         | Match _ -> Failure
@@ -119,7 +134,8 @@ type language = {
         fun (a, b) -> Success(a, b)
 
 
-    member inline this.rep (pa: 'a parser) at_least at_most (transform: 'a list -> 'b) =
+    member this.rep (pa: 'a parser) at_least at_most (transform: 'a list -> 'b) =
+        this.make_parser <|
         if at_most <= 0 then
             fun state ->
             let rec loop state now lst =
@@ -146,31 +162,36 @@ type language = {
             | Success(lst, state) -> Success(transform <| List.rev lst, state)
             | _   -> Failure
         
-    member inline this.trans (pa: 'a parser) (map: 'a -> 'b) = 
+    member this.trans (pa: 'a parser) (map: 'a -> 'b) = 
+        this.make_parser <|
         fun state ->
         pa <*> state >>=
         fun (a, state) -> Success(map a, state)
     
-    member inline this.anyToken =
+    member this.anyToken =
+        this.make_parser <|
         function
         | As(current, new_state) ->
             Success(current, new_state)
         | _ -> Failure
 
-    member inline this.token_by_value str =
+    member this.token_by_value str =
+        this.make_parser <|
         function 
         | As(current, new_state) when current.value = str ->
             Success(current, new_state)
         | _ -> Failure
     
-    member inline this.token_by_value_addr (str: string) =
+    member this.token_by_value_addr (str: string) =
         let str = cast_const str
+        this.make_parser <|
         function 
         | As(current, new_state) when current.value &= str ->
             Success(current, new_state)
         | _ -> Failure
     
-    member inline this.pgen (pa: 'b parser parser) = 
+    member this.pgen (pa: 'b parser parser) =
+        this.make_parser <|
         fun state ->
         pa <*> state >>=
         function
@@ -181,16 +202,19 @@ type language = {
 
     member this.token_by_name (name: string)=
         let name = cast_const name
+        this.make_parser <|
         function 
         | As(current, new_state) when current.name &= name ->
             Success(current, new_state)
         | _ -> Failure
 
-let parse (parser: 't parser) (state: state)  = 
-    match parser <*> state with
-    | Match(a, Empty) -> a
-    | _ -> failwith "emmmm"
-
-
-
+let parse (parser: 'a parser) state = 
     
+    let res = 
+        parser <*> state >>=
+        function
+        | (res, (Empty as state)) -> Success(res, state)
+        | (res, state) -> failwithf "%A" res
+    match res with
+    | Success(res, _) -> res
+    | _ -> failwith "emmm"

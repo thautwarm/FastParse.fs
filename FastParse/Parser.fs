@@ -1,16 +1,6 @@
 ﻿module FastParse.Parser
 open FastParse.Infras
 
-
-type token = {
-    filename : string
-    lineno   : int
-    colno    : int
-    offset   : int
-    name     : string
-    value    : string
-}
-
 type 't view = {
     arr    : 't array
     offset : int 

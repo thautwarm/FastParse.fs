@@ -1,5 +1,13 @@
 ﻿module FastParse.Infras
 
+type token = {
+    filename : string
+    lineno   : int
+    colno    : int
+    offset   : int
+    name     : string
+    value    : string
+}
 
 type ('k, 'v) hashtable = System.Collections.Generic.Dictionary<'k, 'v>
 type 't hashset = System.Collections.Generic.HashSet<'t>
@@ -20,12 +28,12 @@ let inline (>>=) (a: ^a when ^a: (static member Bind: (^a * (^e -> ^b)) -> ^b)) 
                 let tp = (a, f)
                 in (^a: (static member Bind: (^a * (^e -> ^b)) -> ^b) tp)
 
-let (&=) a b =
+let inline (&=) a b =
     obj.ReferenceEquals(a, b)
 
 let caching_pool : (string, string) hashtable = hashtable()
 
-let cast_const str =
+let inline cast_const str =
     match caching_pool.TryGetValue str with
         | (false, _) ->
             caching_pool.Add(str, str)

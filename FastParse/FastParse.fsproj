@@ -2,7 +2,7 @@
 
 <PropertyGroup>
   <TargetFramework>netcoreapp2.0</TargetFramework>
-  <NoWarn>62</NoWarn>
+  <NoWarn>62,40</NoWarn>
   <PackageId>FastParse</PackageId>
   <Version>0.2.0</Version>
   <Authors>thautwarm</Authors>
