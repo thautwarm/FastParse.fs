@@ -28,7 +28,7 @@
     <!--<Compile Include="LR.fs" />-->
     <Compile Include="Parser.fs" />
     <Compile Include="Lexer.fs" />
-    <Compile Include="LRParser.fs" />
+    <!--<Compile Include="LRParser.fs" />-->
     
   </ItemGroup>
   

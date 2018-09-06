@@ -28,7 +28,7 @@ type add2 =
 | Term2 of string
 | Add2 of add2 * add2
 
-type MyTests2(output:ITestOutputHelper) =
+type MyTests(output:ITestOutputHelper) =
 
     [<Fact>]
     member __.``simple`` () =
@@ -155,9 +155,3 @@ type MyTests2(output:ITestOutputHelper) =
         |> ``filter and to view``
         |> parse test3
         |> fun it -> Assert.True(it, "pad test failed")
-
-    [<Fact>]
-    member __.``auto lr`` () =
-        let rec f x = if x = 0 then 0 else g x
-        and g x = f (x - 1)
-        g 5

@@ -6,15 +6,11 @@ type 't view = {
     offset : int 
 }
 
-let (<*>) f arg = (f, f arg)
-
 type 't parser = token view -> ('t * token view) maybe
 
 let (|As|Empty|) ({arr = arr; offset = offset}: 't view) = 
     if arr.Length <= offset then Empty
     else As(arr.[offset], {arr = arr; offset = offset + 1})
-
-
 
 let recur (stack: 'a -> token view -> ('a * token view) maybe) (final: 'a parser)= 
     fun tokens ->

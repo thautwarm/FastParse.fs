@@ -39,3 +39,16 @@ let inline cast_const str =
             caching_pool.Add(str, str)
             str
         | (true, r) -> r
+    
+let mutable _log_started = false 
+
+
+let inline Log msg = 
+
+    if _log_started then
+        System.IO.File.AppendAllText("../log", msg + "\n")
+    else 
+        _log_started <- true
+        System.IO.File.WriteAllText("../log", msg + "\n")
+
+    
